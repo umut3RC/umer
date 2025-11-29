@@ -6,37 +6,64 @@ import { useRouter } from 'next/navigation';
 export default function LoginPage() {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState('');
 
-	// State for form inputs
+	// Form State
 	const [identityNumber, setIdentityNumber] = useState('');
 	const [password, setPassword] = useState('');
 
-	const handleLogin = (e: React.FormEvent) => {
-		e.preventDefault(); // Prevent form submission refresh
+	const handleLogin = async (e: React.FormEvent) => {
+		e.preventDefault();
+		setError('');
 
 		if (!identityNumber || !password) {
-			alert("Please fill in all fields.");
+			setError("Please fill in all fields.");
 			return;
 		}
 
 		setIsLoading(true);
 
-		// --- AUTHENTICATION LOGIC ---
-		// 1. Set Auth Token for Middleware access
-		document.cookie = "auth_token=mock_secure_token; path=/; max-age=3600";
+		try {
+			// 1. Send Request to Backend API
+			const res = await fetch('http://localhost:3001/api/login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ identityNumber, password }),
+			});
 
-		// 2. Save Identity Number to display on Home Page (User Session Data)
-		document.cookie = `user_identity=${identityNumber}; path=/; max-age=3600`;
+			const data = await res.json();
 
-		// Simulate network delay
-		setTimeout(() => {
+			if (!res.ok) {
+				throw new Error(data.error || 'Login failed');
+			}
+
+			// 2. Save Session Data to Cookies
+			const maxAge = 3600; // 1 hour
+
+			document.cookie = `auth_token=${data.token}; path=/; max-age=${maxAge}`;
+			document.cookie = `wallet_address=${data.walletAddress}; path=/; max-age=${maxAge}`;
+			document.cookie = `has_ticket=${data.hasReceivedTicket}; path=/; max-age=${maxAge}`;
+			document.cookie = `user_fullname=${data.user.firstName} ${data.user.lastName}; path=/; max-age=${maxAge}`;
+
+			// 3. Redirect to Home
 			router.push('/');
 			router.refresh();
-		}, 1000);
+
+		} catch (err: any) {
+			console.error("Login Error:", err);
+			setError(err.message || "An unexpected error occurred.");
+			setIsLoading(false);
+		}
 	};
 
 	const handleBackToHome = () => {
 		router.push('/');
+	};
+
+	const handleRegisterRedirect = () => {
+		router.push('/register');
 	};
 
 	return (
@@ -57,10 +84,18 @@ export default function LoginPage() {
 				{/* Login Form */}
 				<form onSubmit={handleLogin} className="p-8 pt-6 space-y-6">
 
+					{/* Error Message Area */}
+					{error && (
+						<div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100 flex items-center gap-2">
+							<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+							{error}
+						</div>
+					)}
+
 					{/* Identity Number Input */}
 					<div className="space-y-2">
 						<label htmlFor="tckn" className="block text-sm font-semibold text-gray-700">
-							TR Identity Number / Blue Card No
+							TR Identity Number
 						</label>
 						<div className="relative">
 							<input
@@ -119,17 +154,29 @@ export default function LoginPage() {
 							{isLoading ? (
 								<>
 									<div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-									Verifying...
+									Authenticating...
 								</>
 							) : 'Log In'}
 						</button>
+
+						{/* Register Link Area */}
+						<div className="text-center pt-2 pb-2">
+							<span className="text-sm text-gray-500">Don't have an account? </span>
+							<button
+								type="button"
+								onClick={handleRegisterRedirect}
+								className="text-sm font-bold text-[#1C4574] hover:underline"
+							>
+								Register Now
+							</button>
+						</div>
 
 						<button
 							type="button"
 							onClick={handleBackToHome}
 							className="w-full py-3.5 px-6 rounded-lg text-gray-600 font-semibold border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
 						>
-							Cancel / Back to Home
+							Back to Home
 						</button>
 					</div>
 

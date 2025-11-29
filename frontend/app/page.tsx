@@ -24,26 +24,47 @@ export default function Home() {
 	const router = useRouter();
 	const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+	// Kullanıcı Bilgileri State'leri
+	const [fullName, setFullName] = useState('');
+	const [walletAddress, setWalletAddress] = useState('');
+
 	useEffect(() => {
-		// Check auth cookie
-		const hasAuth = document.cookie.split(';').some((item) => item.trim().startsWith('auth_token='));
-		setIsLoggedIn(hasAuth);
+		// Çerezleri oku ve parse et
+		const cookies = document.cookie.split('; ').reduce((acc, current) => {
+			const [name, value] = current.split('=');
+			acc[name] = value ? decodeURIComponent(value) : '';
+			return acc;
+		}, {} as Record<string, string>);
+
+		// Auth kontrolü
+		if (cookies.auth_token) {
+			setIsLoggedIn(true);
+			setFullName(cookies.user_fullname || 'Citizen');
+			setWalletAddress(cookies.wallet_address || '');
+		} else {
+			setIsLoggedIn(false);
+		}
 	}, []);
 
 	const handleLoginRedirect = () => {
 		router.push('/login');
 	};
 
-	const handleSettingsRedirect = () => {
-		router.push('/settings');
+	const handleLogout = () => {
+		// Tüm çerezleri temizle
+		document.cookie = "auth_token=; path=/; max-age=0";
+		document.cookie = "wallet_address=; path=/; max-age=0";
+		document.cookie = "has_ticket=; path=/; max-age=0";
+		document.cookie = "user_fullname=; path=/; max-age=0";
+		window.location.reload();
 	};
 
 	const handleAction = (eventId: number) => {
 		if (!isLoggedIn) {
 			router.push('/login');
 		} else {
-			// Mock action
-			alert(`User is authenticated. Proceeding to event ${eventId}...`);
+			// Şimdilik sadece alert, ileride oylama modalı açılacak
+			alert(`User: ${fullName}\nWallet: ${walletAddress}\nProceeding to event...`);
 		}
 	};
 
@@ -62,25 +83,24 @@ export default function Home() {
 					</div>
 				</div>
 
-				{/* Right Side */}
+				{/* Sağ Taraf: Kullanıcı Bilgisi ve Çıkış */}
 				<div>
 					{isLoggedIn ? (
-						<div className="flex items-center gap-3">
-							{/* SETTINGS BUTTON */}
-							<button
-								onClick={handleSettingsRedirect}
-								className="bg-[#153456] border border-transparent text-white px-4 py-1.5 rounded text-sm hover:bg-white hover:text-[#1C4574] transition-colors flex items-center gap-2"
-							>
-								<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-								Settings
-							</button>
+						<div className="flex items-center gap-4">
+
+							{/* Kullanıcı Bilgileri (Desktop) */}
+							<div className="text-right hidden md:block">
+								<div className="text-white text-sm font-semibold">{fullName}</div>
+								<div className="text-blue-300 text-[10px] font-mono tracking-wide">
+									{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+								</div>
+							</div>
+
+							<div className="h-8 w-[1px] bg-blue-800 mx-2 hidden md:block"></div>
 
 							{/* LOGOUT BUTTON */}
 							<button
-								onClick={() => {
-									document.cookie = "auth_token=; path=/; max-age=0";
-									window.location.reload();
-								}}
+								onClick={handleLogout}
 								className="bg-transparent border border-white text-white px-5 py-1.5 rounded text-sm hover:bg-white hover:text-[#1C4574] transition-colors"
 							>
 								Log Out
@@ -99,9 +119,25 @@ export default function Home() {
 
 			{/* --- MAIN CONTENT --- */}
 			<main className="pt-24 pb-12 px-4 md:px-8 max-w-6xl mx-auto">
-				<div className="mb-8 border-b border-gray-100 pb-4">
-					<h2 className="text-2xl font-bold text-[#1C4574]">Public Announcements</h2>
-					<p className="text-gray-500 mt-1">Access current public services and voting events.</p>
+
+				{/* Karşılama Alanı (Mobil için de görünür) */}
+				{isLoggedIn && (
+					<div className="mb-8 p-6 bg-blue-50 rounded-xl border border-blue-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+						<div>
+							<h2 className="text-2xl font-bold text-[#1C4574]">Welcome, {fullName}</h2>
+							<p className="text-gray-600 mt-1">Your digital identity is verified. You can now participate in listed events.</p>
+						</div>
+						<div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+							<div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Your Blockchain Wallet</div>
+							<div className="font-mono text-xs text-[#1C4574] break-all select-all">
+								{walletAddress}
+							</div>
+						</div>
+					</div>
+				)}
+
+				<div className="mb-6 border-b border-gray-100 pb-2">
+					<h3 className="text-xl font-bold text-gray-700">Public Announcements</h3>
 				</div>
 
 				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
