@@ -1,11 +1,11 @@
-"use client"; // Bu satır çok önemli, tarayıcıda çalışacağını belirtir.
+"use client";
 
 import { createNetworkConfig, SuiClientProvider, WalletProvider } from '@mysten/dapp-kit';
 import { getFullnodeUrl } from '@mysten/sui/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
-// Ağ ayarları: Lokal, Test ve Ana ağ bağlantılarını tanımlıyoruz.
+// Network configuration (Using Testnet for development)
 const { networkConfig } = createNetworkConfig({
 	localnet: { url: getFullnodeUrl('localnet') },
 	mainnet: { url: getFullnodeUrl('mainnet') },
