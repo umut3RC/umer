@@ -1,5 +1,5 @@
 module app::voting_system {
-    use std::string::String;
+    use std::string::{Self, String}; // String modülünü ekledik
     use sui::event;
     use sui::transfer;
     use sui::object::{Self, UID, ID};
@@ -51,42 +51,48 @@ module app::voting_system {
         region_id: ID,          
     }
 
-    // --- INIT (DÜZELTİLDİ: public entry kaldırıldı) ---
+    // --- INIT ---
     fun init(ctx: &mut TxContext) {
         transfer::transfer(AdminCap {
             id: object::new(ctx)
         }, ctx.sender());
     }
 
-    // --- TEST İÇİN YARDIMCI FONKSİYON (EKLEME) ---
     #[test_only]
     public fun test_init(ctx: &mut TxContext) {
         init(ctx);
     }
 
     // --- FONKSİYONLAR ---
+
+    // 1. BÖLGE OLUŞTURMA (DÜZELTİLDİ)
     public entry fun create_region(
-        _admin: &AdminCap, // _ ile kullanılmadığını belirttik
+        _admin: &AdminCap,
         name: String,
         ctx: &mut TxContext
     ) {
         let uid = object::new(ctx);                  
         let region_id = object::uid_to_inner(&uid);  
 
+        // KRİTİK DÜZELTME: İsmin kopyasını alıyoruz (Move Ownership kuralı)
+        // Çünkü aşağıda 'name' değişkenini struct içine koyunca o değişken ölüyor.
+        let name_bytes = *string::bytes(&name);
+
         let region = Region {
             id: uid,
-            name: name,
+            name: name, // Orijinal isim burada kullanıldı (Moved/Tüketildi)
             total_votes: 0,                         
         };
 
         event::emit(RegionCreated {
             region_id,
-            name: region.name,
+            name: string::utf8(name_bytes), // Kopya isim burada kullanıldı
         });
 
         transfer::public_share_object(region);
     }
 
+    // 2. ADAY OLUŞTURMA (DÜZELTİLDİ)
     public entry fun create_candidate(
         _admin: &AdminCap, 
         name: String,
@@ -96,22 +102,26 @@ module app::voting_system {
         let uid = object::new(ctx);
         let candidate_id = object::uid_to_inner(&uid);
 
+        // İsmin kopyasını al
+        let name_bytes = *string::bytes(&name);
+
         let candidate = Candidate {
             id: uid,
-            name,
+            name, // 'name' tüketildi
             region_id: object::uid_to_inner(&region.id), 
             vote_count: 0,                                      
         };
 
         event::emit(CandidateCreated {
             candidate_id,
-            name: candidate.name,
+            name: string::utf8(name_bytes),
             region_id: candidate.region_id,
         });
 
         transfer::public_share_object(candidate);
     }
 
+    // 3. SEÇMEN KAYDI
     public entry fun register_voter(
         _admin: &AdminCap,
         recipient: address,
@@ -128,6 +138,7 @@ module app::voting_system {
         transfer::public_transfer(vote_ticket, recipient);
     }
 
+    // 4. OY KULLANMA (DÜZELTİLDİ)
     public entry fun cast_vote(
         vote_ticket: &mut CitizenVote,
         candidate: &mut Candidate,
@@ -140,11 +151,15 @@ module app::voting_system {
         region.total_votes = region.total_votes + 1;
 
         vote_ticket.voted = true;
-        vote_ticket.voted_candidate_name = candidate.name; 
+        
+        // Aday isminin kopyasını alıp bilete yazıyoruz
+        let candidate_name_bytes = *string::bytes(&candidate.name);
+        vote_ticket.voted_candidate_name = string::utf8(candidate_name_bytes); 
 
+        // Event için bir kopya daha oluşturup kullanıyoruz (veya aynısını kullanabiliriz)
         event::emit(VoteCasted {
             voter_ticket_id: object::uid_to_inner(&vote_ticket.id),
-            candidate_name: candidate.name,
+            candidate_name: string::utf8(candidate_name_bytes),
             region_id: object::uid_to_inner(&region.id),
         });
     }
